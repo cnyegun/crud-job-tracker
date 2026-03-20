@@ -1,6 +1,10 @@
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
 const express = require('express')
 const app = express()
 app.use(express.json())
+
+const SECRET_KEY = "HUNTER2"
 
 const { Pool } = require('pg')
 
@@ -13,7 +17,6 @@ const pool = new Pool({
 })
 
 app.get('/', (req, res) => {
-    console.log(req)
     res.send("Job Tracker API is running")
 })
 
@@ -52,6 +55,32 @@ app.delete('/applications/:id', async (req, res) => {
     )
     res.status(204).send()
 })
+
+// AUTH
+
+app.post('/auth/register', async (req, res) => {
+    const { email, password } = req.body
+    const hash = await bcrypt.hash(password, 10)
+    await pool.query('INSERT INTO users (email, password) VALUES ($1, $2)', [email, hash])
+    res.status(201).send()
+})
+
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body
+    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email])
+    const user = result.rows[0]
+    if (!user) return res.status(401).send()
+
+    const match = await bcrypt.compare(password, user.password)
+    if (match) {
+        const token = jwt.sign({ userId: user.id }, SECRET_KEY)
+        res.json({token})
+    }
+    else {
+        res.status(401).send()
+    }
+})
+
 
 app.listen(3000, () => {
     console.log("Start listening on port 3000")
