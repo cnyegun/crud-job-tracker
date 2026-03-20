@@ -4,16 +4,13 @@ const express = require('express')
 const app = express()
 app.use(express.json())
 
-const SECRET_KEY = "HUNTER2"
+const SECRET_KEY = process.env.SECRET_KEY
 
 const { Pool } = require('pg')
 
 const pool = new Pool({
-    user: 'jobuser',
-    host: '127.0.0.1',
-    database: 'jobtracker',
-    password: 'password123',
-    port: 5432
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
 })
 
 const authenicate = (req, res, next) => {
