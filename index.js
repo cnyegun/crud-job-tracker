@@ -16,17 +16,35 @@ const pool = new Pool({
     port: 5432
 })
 
+const authenicate = (req, res, next) => {
+    const authHeaders = req.headers['authorization']
+    if (!authHeaders) return res.status(401).send()
+    const token = authHeaders.split(' ')[1]
+
+    if (!token) {
+        res.status(401).send()
+    }
+    try {
+        jwt.verify(token, SECRET_KEY)
+        next()
+    }
+    catch {
+        return res.status(401).send()
+    }
+
+}
+
 app.get('/', (req, res) => {
     res.send("Job Tracker API is running")
 })
 
-app.get('/applications', async (req, res) => {
+app.get('/applications', authenicate, async (req, res) => {
     await pool.query('SELECT * FROM applications').then((result) => {
         res.json(result.rows)
     })
 })
 
-app.post('/applications', async (req,res) => {
+app.post('/applications', authenicate, async (req,res) => {
     await pool.query('INSERT INTO applications (company, role, status) VALUES ($1, $2, $3) RETURNING *', 
         [
             req.body["company"],
@@ -37,7 +55,7 @@ app.post('/applications', async (req,res) => {
     res.status(201).send()
 })
 
-app.put('/applications/:id', async (req, res) => {
+app.put('/applications/:id', authenicate, async (req, res) => {
     await pool.query('UPDATE applications SET company=$1, role=$2, status=$3 WHERE id=$4 RETURNING *', 
         [
             req.body["company"],
@@ -49,7 +67,7 @@ app.put('/applications/:id', async (req, res) => {
     res.status(201).send()
 })
 
-app.delete('/applications/:id', async (req, res) => {
+app.delete('/applications/:id', authenicate, async (req, res) => {
     await pool.query("DELETE FROM applications WHERE id=$1",
         [req.params["id"]]
     )
