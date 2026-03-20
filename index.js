@@ -25,13 +25,13 @@ const authenicate = (req, res, next) => {
         res.status(401).send()
     }
     try {
-        jwt.verify(token, SECRET_KEY)
+        const decoded = jwt.verify(token, SECRET_KEY)
+        req.userId = decoded.userId
         next()
     }
     catch {
         return res.status(401).send()
     }
-
 }
 
 app.get('/', (req, res) => {
@@ -39,37 +39,39 @@ app.get('/', (req, res) => {
 })
 
 app.get('/applications', authenicate, async (req, res) => {
-    await pool.query('SELECT * FROM applications').then((result) => {
+    await pool.query('SELECT * FROM applications WHERE user_id=$1', [req.userId]).then((result) => {
         res.json(result.rows)
     })
 })
 
 app.post('/applications', authenicate, async (req,res) => {
-    await pool.query('INSERT INTO applications (company, role, status) VALUES ($1, $2, $3) RETURNING *', 
+    await pool.query('INSERT INTO applications (company, role, status, user_id) VALUES ($1, $2, $3, $4) RETURNING *', 
         [
             req.body["company"],
             req.body["role"],
-            req.body["status"]
+            req.body["status"],
+            req.userId
         ]
     )
     res.status(201).send()
 })
 
 app.put('/applications/:id', authenicate, async (req, res) => {
-    await pool.query('UPDATE applications SET company=$1, role=$2, status=$3 WHERE id=$4 RETURNING *', 
+    await pool.query('UPDATE applications SET company=$1, role=$2, status=$3 WHERE id=$4 AND user_id=$5 RETURNING *', 
         [
             req.body["company"],
             req.body["role"],
             req.body["status"],
-            Number(req.params["id"])
+            Number(req.params["id"]),
+            req.userId
         ]
     )
     res.status(201).send()
 })
 
 app.delete('/applications/:id', authenicate, async (req, res) => {
-    await pool.query("DELETE FROM applications WHERE id=$1",
-        [req.params["id"]]
+    await pool.query("DELETE FROM applications WHERE id=$1 AND user_id=$2",
+        [req.params["id"], req.userId]
     )
     res.status(204).send()
 })
